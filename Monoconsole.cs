@@ -128,7 +128,7 @@ namespace MonoconsoleLib
                     WorkingThread = new Thread(() =>
                     {
                         if (MainTask != null)
-                            MainTask.Invoke(args, _cts.Token);
+                            MainTask.Invoke(args ?? Array.Empty<object>(), _cts.Token);
                         else
                             ConsoleRead(_cts.Token);
 
@@ -188,12 +188,12 @@ namespace MonoconsoleLib
         /// <summary>
         /// Closes the console if it is open and opens a new one.
         /// </summary>
-        public static void New()
+        public static void New(object[] args = null)
         {
             if (IsOpened)
                 Close();
 
-            Open();
+            Open(args);
         }
 
         /// <summary>
