@@ -6,8 +6,8 @@ It allows interaction with the console, handles user input, displays messages wi
 The console works with the `System.Console` in C#, meaning that once you open 
 the console, you can use `Console.WriteLine` or any other Console methods/properties with no difference. However, it is primarily recommended to use `Monoconsole.Write`/`Monoconsole.WriteLine`.
 
-### Installation:
-Add the MonoconsoleLib project to your solution or reference the compiled .dll file in your project.
+### Installation
+Reference the compiled .dll file in your project.
 
 ### Open/Close
 You can open the console by calling:
