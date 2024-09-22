@@ -9,8 +9,7 @@ using static MonoconsoleLib.NativeInterop;
 namespace MonoconsoleLib
 {
     /// <summary>
-    /// Represents a simple console that can be opened in any project.
-    /// Allows processing of input via the <see cref="Handler"/> delegate.
+    /// Provides methods and properties to manage a simple console window.
     /// </summary>
     public static class Monoconsole
     {
@@ -56,7 +55,7 @@ namespace MonoconsoleLib
         /// </summary>
         public static string Title { get; set; } = "monoconsole";
         /// <summary>
-        /// Gets or sets the command that closes the console.
+        /// Gets or sets the basic command that closes the console.
         /// </summary>
         public static string ExitCommand { get; set; } = "exit";
 
@@ -65,30 +64,39 @@ namespace MonoconsoleLib
         /// </summary>
         public static Action<string> Handler { get; set; }
         /// <summary>
-        /// Gets or sets the handler that receives exceptions thrown during command execution or console read operations.
+        /// Gets or sets the handler that receives exceptions thrown in <see cref="Execute(string)"/> or <see cref="ExecuteAsync"/> methods.
         /// </summary>
         public static Action<Exception> ExceptionHandler { get; set; }
+        /// <summary>
+        /// Gets or sets the task that runs when the console is open. If null, this is a read-line loop that redirects input to the <see cref="Handler"/>.
+        /// </summary>
+        public static Action<object[], CancellationToken> MainTask { get; set; } = null;
 
+        /// <summary>
+        /// Gets a value indicating the current thread of the console.
+        /// </summary>
         ///<returns>Current thread of the console if it is opened; otherwise, null.</returns>
-        public static Thread ConsoleThread { get; private set; } = null;
+        public static Thread WorkingThread { get; private set; } = null;
+        /// <summary>
+        /// Gets a value indicating the current handle of the console window.
+        /// </summary>
         ///<returns>Console window handle of the console if it is opened; otherwise, null.</returns>
         public static IntPtr? WindowHandle { get; private set; } = null;
+
         /// <summary>
         /// Occurs when the console is opened.
         /// </summary>
         public static event Action Opened;
-
         /// <summary>
         /// Occurs when the console is closed.
         /// </summary>
         public static event Action Closed;
-
         /// <summary>
         /// Occurs when input is received from the console.
         /// </summary>
         public static event Action<string> InputReceived;
 
-        private readonly static object _lock = new object();
+        private readonly static object _writeLock = new object();
 
         private static CancellationTokenSource _cts;
 
@@ -100,7 +108,7 @@ namespace MonoconsoleLib
         /// Opens the console if it is not already open.
         /// </summary>
         /// <returns>true if the console was successfully opened; otherwise, false.</returns>
-        public static bool Open()
+        public static bool Open(object[] args = null)
         {
             if (!IsOpened)
             {
@@ -117,11 +125,19 @@ namespace MonoconsoleLib
                     Console.OutputEncoding = Encoding.UTF8;
                     _cts = new CancellationTokenSource();
 
-                    ConsoleThread = new Thread(() => ConsoleRead(_cts.Token))
+                    WorkingThread = new Thread(() =>
                     {
-                        IsBackground = true
-                    };
-                    ConsoleThread.Start();
+                        if (MainTask != null)
+                            MainTask.Invoke(args, _cts.Token);
+                        else
+                            ConsoleRead(_cts.Token);
+
+                        if (WorkingThread == Thread.CurrentThread)
+                            Close();
+                    });
+
+                    WorkingThread.IsBackground = true;
+                    WorkingThread.Start();
 
                     IsOpened = true;
                     Opened?.Invoke();
@@ -143,16 +159,18 @@ namespace MonoconsoleLib
 
                 if (result)
                 {
+                    IsOpened = false;
+
                     _cts?.Cancel();
+
                     ConsoleReset();
 
-                    ConsoleThread = null;
+                    WorkingThread = null;
                     WindowHandle = null;
 
-                    IsOpened = false;
                     Closed?.Invoke();
                 }
-                
+
                 return result;
             }
             return false;
@@ -243,8 +261,7 @@ namespace MonoconsoleLib
             {
                 try
                 {
-                    string input = Console.ReadLine();
-                    InputReceived?.Invoke(input);
+                    string input = ReadLine();
 
                     if (input.Equals(ExitCommand, StringComparison.OrdinalIgnoreCase))
                         Close();
@@ -257,7 +274,6 @@ namespace MonoconsoleLib
                 catch (Exception ex)
                 {
                     WriteError($"{ex.Message} [read]").Wait(CancellationToken.None);
-                    ExceptionHandler?.Invoke(ex);
                 }
             }
         }
@@ -308,23 +324,41 @@ namespace MonoconsoleLib
             WindowHandle = GetConsoleWindow();
         }
 
+
+        /// <summary>
+        /// Works like <see cref="Console.ReadLine"/> but also invokes <see cref="InputReceived"/>
+        /// </summary>
+        public static string ReadLine()
+        {
+            string input = Console.ReadLine();
+            InputReceived?.Invoke(input);
+            return input;
+        }
+
         private static async Task WriteAsync(Action writeAction, ConsoleColor color = ConsoleColor.White)
         {
-            await Task.Run(() =>
+            try
             {
-                lock (_lock)
+                await Task.Run(() =>
                 {
-                    if (IsOpened)
+                    lock (_writeLock)
                     {
-                        var temp = Console.ForegroundColor;
-                        ForeColor = color;
+                        if (IsOpened)
+                        {
+                            var temp = Console.ForegroundColor;
+                            ForeColor = color;
 
-                        writeAction();
+                            writeAction();
 
-                        ForeColor = temp;
+                            ForeColor = temp;
+                        }
                     }
-                }
-            });
+                });
+            }
+            catch (IOException)
+            {
+                //Invalid handle exceptions
+            }
         }
 
         /// <summary>
