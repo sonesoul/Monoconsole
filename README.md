@@ -1,13 +1,19 @@
-# MonoconsoleLib
-MonoconsoleLib is a lightweight library for opening and managing a console window in non-console applications.
+# Monoconsole
+Monoconsole is a lightweight library for opening and managing a console window in non-console applications.
 It allows interaction with the console, handles user input, displays messages with customizable colors, and executes commands asynchronously.
 
 
-The console works with the `System.Console` in C#, meaning that once you open 
-the console, you can use `Console.WriteLine` or any other Console methods/properties with no difference. However, it is primarily recommended to use `Monoconsole.Write`/`Monoconsole.WriteLine`.
+The console integrates with `System.Console` in C#, meaning that once it's open, you can use `Console.WriteLine` or any other Console methods/properties seamlessly.
+However, it's recommended to use `Monoconsole.Write` and `Monoconsole.WriteLine` primarily
 
 ### Installation
-Reference the compiled .dll file in your project.
+Reference the compiled .dll file in your project:
+In Visual Studio, right-click on your project in the Solution Explorer, choose "Add Reference...", and locate the .dll file.
+
+Add the using directive in the files where you want to use the library:
+```csharp
+using MonoconsoleLib;
+```
 
 ### Open/Close
 You can open the console by calling:
@@ -28,22 +34,22 @@ Monoconsole.New();
 ```
 
 ### Logic
-You can assign an input handler for processing input in `Monoconsole.ReadLine()` and the `Execute`/`ExecuteAsync` methods:
+You can assign an input handler for processing input in a basic console logic and the `Execute`/`ExecuteAsync` methods:
 ```csharp
 Monoconsole.Handler = (input) => 
 {
-    Console.WriteLine($"Received: {input}");
+    Monoconsole.WriteLine($"Received: {input}");
 };
 ```
 
-To execute commands manually or asynchronously:
+To execute commands either synchronously or asynchronously:
 
 ```csharp
 Monoconsole.Execute("your command"); //blocks the thread on which it was called
 await Monoconsole.ExecuteAsync("your async command");
 ```
 
-By default, Monoconsole uses read-line loop that redirects input to the `Monoconsole.Handler`, but you can customize that logic:
+By default, Monoconsole uses read-line loop that redirects input to the `Monoconsole.Handler`, but you can customize that logic to fit your needs::
 
 ```csharp
 Monoconsole.MainTask = (args, token) =>
@@ -92,7 +98,7 @@ Monoconsole.Write("Blue color", ConsoleColor.Blue);
 ```
 
 ### Events
-Monoconsole provides several events:
+MMonoconsole provides several events, such as:
 
 `Opened` – Triggered when the console opens.
 
@@ -103,7 +109,7 @@ Monoconsole provides several events:
 ```csharp
 Monoconsole.InputReceived += (input) => 
 {
-    Console.WriteLine($"Command executed: {input}");
+    Monoconsole.WriteLine($"Command executed: {input}");
 };
 ```
 ## Known Issue
